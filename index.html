@@ -51,20 +51,25 @@
             min-height: 200px;
             display: flex;
             flex-direction: column;
-            justify-content: center;
         }
 
-        .quote-text {
-            font-size: 22px;
-            line-height: 1.5;
+        .quote-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 20px;
-            flex: 1;
+        }
+
+        .quote-id {
+            background-color: var(--accent-color);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 500;
         }
 
         .favorite-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
             background: none;
             border: none;
             font-size: 24px;
@@ -79,6 +84,19 @@
 
         .favorite-btn:hover {
             transform: scale(1.1);
+        }
+
+        .quote-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quote-text {
+            font-size: 22px;
+            line-height: 1.5;
+            text-align: center;
         }
 
         .hint-text {
@@ -143,21 +161,25 @@
             position: relative;
         }
 
+        .favorite-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
         .favorite-item .quote-text {
             font-size: 18px;
-            margin-bottom: 0;
-            padding-right: 30px;
+            text-align: left;
         }
 
         .remove-btn {
-            position: absolute;
-            top: 15px;
-            right: 15px;
             background: none;
             border: none;
             cursor: pointer;
             color: #ccc;
             transition: color 0.3s;
+            font-size: 16px;
         }
 
         .remove-btn:hover {
@@ -181,6 +203,38 @@
 
         .swipe-animation-right {
             animation: swipeRight 0.3s forwards;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .pagination-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .pagination-btn:hover {
+            background-color: #5847d0;
+        }
+
+        .pagination-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            font-size: 14px;
+            color: #666;
         }
 
         @keyframes swipeLeft {
@@ -233,12 +287,24 @@
         <div class="content">
             <div class="content-section active" id="quotes-section">
                 <div class="quote-card" id="quote-card">
-                    <p class="quote-text" id="quote-text">Loading quote...</p>
-                    <button class="favorite-btn" id="favorite-btn">
-                        <i class="fas fa-heart"></i>
-                    </button>
+                    <div class="quote-header">
+                        <div class="quote-id" id="quote-id">ID: -</div>
+                        <button class="favorite-btn" id="favorite-btn">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                    </div>
+                    <div class="quote-content">
+                        <p class="quote-text" id="quote-text">Loading quote...</p>
+                    </div>
                 </div>
-                <p class="hint-text">Swipe left for a new quote</p>
+                
+                <div class="pagination">
+                    <button class="pagination-btn" id="prev-btn" disabled>Previous</button>
+                    <span class="pagination-info" id="pagination-info">Quote 0 of 0</span>
+                    <button class="pagination-btn" id="next-btn">Next</button>
+                </div>
+                
+                <p class="hint-text">Swipe left for the next quote</p>
             </div>
             
             <div class="content-section" id="favorites-section">
@@ -261,12 +327,11 @@
             constructor() {
                 this.quotes = [];
                 this.favoriteQuotes = [];
-                this.readQuoteIds = new Set();
-                this.currentQuote = null;
+                this.currentIndex = 0;
                 
                 this.loadQuotes();
                 this.loadFavoriteQuotes();
-                this.loadReadQuoteIds();
+                this.loadCurrentIndex();
             }
             
             async loadQuotes() {
@@ -276,7 +341,8 @@
                         throw new Error('Failed to load quotes');
                     }
                     this.quotes = await response.json();
-                    this.displayNewQuote();
+                    this.displayCurrentQuote();
+                    this.updatePaginationInfo();
                 } catch (error) {
                     console.error('Error loading quotes:', error);
                     // Add fallback quotes if loading fails
@@ -285,7 +351,8 @@
                         { id: 2, Quote: "The way to get started is to quit talking and begin doing." },
                         { id: 3, Quote: "Your time is limited, so don't waste it living someone else's life." },
                     ];
-                    this.displayNewQuote();
+                    this.displayCurrentQuote();
+                    this.updatePaginationInfo();
                 }
             }
             
@@ -300,49 +367,45 @@
                 localStorage.setItem('favoriteQuotes', JSON.stringify(this.favoriteQuotes));
             }
             
-            loadReadQuoteIds() {
-                const storedReadIds = localStorage.getItem('readQuoteIds');
-                if (storedReadIds) {
-                    this.readQuoteIds = new Set(JSON.parse(storedReadIds));
+            loadCurrentIndex() {
+                const storedIndex = localStorage.getItem('currentQuoteIndex');
+                if (storedIndex !== null) {
+                    this.currentIndex = parseInt(storedIndex);
                 }
             }
             
-            saveReadQuoteIds() {
-                localStorage.setItem('readQuoteIds', JSON.stringify([...this.readQuoteIds]));
+            saveCurrentIndex() {
+                localStorage.setItem('currentQuoteIndex', this.currentIndex.toString());
             }
             
-            displayNewQuote() {
-                // Get unread quotes
-                const unreadQuotes = this.quotes.filter(quote => !this.readQuoteIds.has(quote.id));
+            displayCurrentQuote() {
+                if (this.quotes.length === 0) return;
                 
-                // If all quotes have been read, reset the read history
-                if (unreadQuotes.length === 0) {
-                    this.readQuoteIds.clear();
-                    this.currentQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
-                } else {
-                    this.currentQuote = unreadQuotes[Math.floor(Math.random() * unreadQuotes.length)];
+                // Ensure index is within bounds
+                if (this.currentIndex >= this.quotes.length) {
+                    this.currentIndex = 0;
                 }
                 
-                // Mark current quote as read
-                if (this.currentQuote) {
-                    this.readQuoteIds.add(this.currentQuote.id);
-                    this.saveReadQuoteIds();
-                    
-                    // Update UI
-                    this.updateQuoteUI();
-                }
+                const currentQuote = this.quotes[this.currentIndex];
+                
+                // Update UI
+                this.updateQuoteUI(currentQuote);
+                this.saveCurrentIndex();
+                this.updatePaginationControls();
             }
             
-            updateQuoteUI() {
-                if (!this.currentQuote) return;
+            updateQuoteUI(quote) {
+                if (!quote) return;
                 
                 const quoteText = document.getElementById('quote-text');
+                const quoteId = document.getElementById('quote-id');
                 const favoriteBtn = document.getElementById('favorite-btn');
                 
-                quoteText.textContent = this.currentQuote.Quote;
+                quoteText.textContent = quote.Quote;
+                quoteId.textContent = `ID: ${quote.id}`;
                 
                 // Update favorite button state
-                const isFavorite = this.favoriteQuotes.some(q => q.id === this.currentQuote.id);
+                const isFavorite = this.favoriteQuotes.some(q => q.id === quote.id);
                 if (isFavorite) {
                     favoriteBtn.classList.add('active');
                 } else {
@@ -350,14 +413,48 @@
                 }
             }
             
-            toggleFavorite() {
-                if (!this.currentQuote) return;
+            updatePaginationInfo() {
+                const paginationInfo = document.getElementById('pagination-info');
+                if (this.quotes.length > 0) {
+                    paginationInfo.textContent = `Quote ${this.currentIndex + 1} of ${this.quotes.length}`;
+                } else {
+                    paginationInfo.textContent = 'No quotes available';
+                }
+            }
+            
+            updatePaginationControls() {
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
                 
-                const index = this.favoriteQuotes.findIndex(q => q.id === this.currentQuote.id);
+                prevBtn.disabled = this.currentIndex === 0;
+                nextBtn.disabled = this.currentIndex === this.quotes.length - 1;
+                
+                this.updatePaginationInfo();
+            }
+            
+            previousQuote() {
+                if (this.currentIndex > 0) {
+                    this.currentIndex--;
+                    this.displayCurrentQuote();
+                }
+            }
+            
+            nextQuote() {
+                if (this.currentIndex < this.quotes.length - 1) {
+                    this.currentIndex++;
+                    this.displayCurrentQuote();
+                }
+            }
+            
+            toggleFavorite() {
+                if (this.quotes.length === 0) return;
+                
+                const currentQuote = this.quotes[this.currentIndex];
+                const index = this.favoriteQuotes.findIndex(q => q.id === currentQuote.id);
                 
                 if (index === -1) {
                     // Add to favorites
-                    this.favoriteQuotes.push(this.currentQuote);
+                    this.favoriteQuotes.push(currentQuote);
                     document.getElementById('favorite-btn').classList.add('active');
                     this.showNotification('Quote added to favorites');
                 } else {
@@ -379,7 +476,8 @@
                     this.updateFavoritesUI();
                     
                     // Update current quote UI if needed
-                    if (this.currentQuote && this.currentQuote.id === id) {
+                    const currentQuote = this.quotes[this.currentIndex];
+                    if (currentQuote && currentQuote.id === id) {
                         document.getElementById('favorite-btn').classList.remove('active');
                     }
                     
@@ -406,17 +504,27 @@
                     const item = document.createElement('div');
                     item.className = 'favorite-item';
                     
-                    const quoteText = document.createElement('p');
-                    quoteText.className = 'quote-text';
-                    quoteText.textContent = quote.Quote;
+                    const header = document.createElement('div');
+                    header.className = 'favorite-item-header';
+                    
+                    const idTag = document.createElement('div');
+                    idTag.className = 'quote-id';
+                    idTag.textContent = `ID: ${quote.id}`;
                     
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
                     removeBtn.innerHTML = '<i class="fas fa-times"></i>';
                     removeBtn.addEventListener('click', () => this.removeFavorite(quote.id));
                     
+                    header.appendChild(idTag);
+                    header.appendChild(removeBtn);
+                    
+                    const quoteText = document.createElement('p');
+                    quoteText.className = 'quote-text';
+                    quoteText.textContent = quote.Quote;
+                    
+                    item.appendChild(header);
                     item.appendChild(quoteText);
-                    item.appendChild(removeBtn);
                     favoritesList.appendChild(item);
                 });
             }
@@ -463,6 +571,18 @@
             const favoriteBtn = document.getElementById('favorite-btn');
             favoriteBtn.addEventListener('click', () => {
                 quoteManager.toggleFavorite();
+            });
+            
+            // Pagination buttons
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            prevBtn.addEventListener('click', () => {
+                quoteManager.previousQuote();
+            });
+            
+            nextBtn.addEventListener('click', () => {
+                quoteManager.nextQuote();
             });
             
             // Swipe functionality
@@ -516,25 +636,29 @@
             });
             
             function showNextQuote() {
-                quoteCard.classList.add('swipe-animation-left');
-                
-                setTimeout(() => {
-                    quoteManager.displayNewQuote();
-                    quoteCard.classList.remove('swipe-animation-left');
-                    quoteCard.classList.add('swipe-animation-right');
+                if (quoteManager.currentIndex < quoteManager.quotes.length - 1) {
+                    quoteCard.classList.add('swipe-animation-left');
                     
                     setTimeout(() => {
-                        quoteCard.classList.remove('swipe-animation-right');
-                        quoteCard.style.transform = 'translateX(0)';
+                        quoteManager.nextQuote();
+                        quoteCard.classList.remove('swipe-animation-left');
+                        quoteCard.classList.add('swipe-animation-right');
+                        
+                        setTimeout(() => {
+                            quoteCard.classList.remove('swipe-animation-right');
+                            quoteCard.style.transform = 'translateX(0)';
+                        }, 300);
                     }, 300);
-                }, 300);
+                }
             }
             
             // Keyboard navigation
             document.addEventListener('keydown', (e) => {
                 if (quotesSection.classList.contains('active')) {
                     if (e.key === 'ArrowLeft') {
-                        showNextQuote();
+                        quoteManager.previousQuote();
+                    } else if (e.key === 'ArrowRight') {
+                        quoteManager.nextQuote();
                     }
                 }
             });
