@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Quotes</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-color: #343a40;
+            --accent-color: #6c5ce7;
+            --favorite-color: #e84393;
+            --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --border-radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        body {
+            background-color: var(--primary-bg);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .quote-card {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .quote-text {
+            font-size: 22px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            flex: 1;
+        }
+
+        .favorite-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #ccc;
+            transition: color 0.3s ease, transform 0.2s ease;
+        }
+
+        .favorite-btn.active {
+            color: var(--favorite-color);
+        }
+
+        .favorite-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .hint-text {
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .tab-container {
+            display: flex;
+            justify-content: space-around;
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .tab.active {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-section {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+        }
+
+        .content-section.active {
+            display: flex;
+        }
+
+        .favorites-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .favorite-item {
+            background-color: var(--card-bg);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 15px;
+            position: relative;
+        }
+
+        .favorite-item .quote-text {
+            font-size: 18px;
+            margin-bottom: 0;
+            padding-right: 30px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #ccc;
+            transition: color 0.3s;
+        }
+
+        .remove-btn:hover {
+            color: #ff6b6b;
+        }
+
+        .empty-favorites {
+            text-align: center;
+            margin-top: 50px;
+            color: #888;
+        }
+
+        .empty-favorites h3 {
+            margin-bottom: 10px;
+            font-size: 20px;
+        }
+
+        .swipe-animation-left {
+            animation: swipeLeft 0.3s forwards;
+        }
+
+        .swipe-animation-right {
+            animation: swipeRight 0.3s forwards;
+        }
+
+        @keyframes swipeLeft {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(-100%); opacity: 0; }
+        }
+
+        @keyframes swipeRight {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--accent-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 30px;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .quote-text {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="tab-container">
+            <div class="tab active" id="quotes-tab">Quotes</div>
+            <div class="tab" id="favorites-tab">Favorites</div>
+        </div>
+        
+        <div class="content">
+            <div class="content-section active" id="quotes-section">
+                <div class="quote-card" id="quote-card">
+                    <p class="quote-text" id="quote-text">Loading quote...</p>
+                    <button class="favorite-btn" id="favorite-btn">
+                        <i class="fas fa-heart"></i>
+                    </button>
+                </div>
+                <p class="hint-text">Swipe left for a new quote</p>
+            </div>
+            
+            <div class="content-section" id="favorites-section">
+                <div class="favorites-list" id="favorites-list">
+                    <!-- Favorite quotes will be loaded here -->
+                </div>
+                <div class="empty-favorites" id="empty-favorites" style="display: none;">
+                    <h3>No favorite quotes yet</h3>
+                    <p>Add quotes to your favorites to see them here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification">Quote added to favorites</div>
+
+    <script>
+        // Quote class and storage management
+        class QuoteManager {
+            constructor() {
+                this.quotes = [];
+                this.favoriteQuotes = [];
+                this.readQuoteIds = new Set();
+                this.currentQuote = null;
+                
+                this.loadQuotes();
+                this.loadFavoriteQuotes();
+                this.loadReadQuoteIds();
+            }
+            
+            async loadQuotes() {
+                try {
+                    const response = await fetch('quotes.json');
+                    if (!response.ok) {
+                        throw new Error('Failed to load quotes');
+                    }
+                    this.quotes = await response.json();
+                    this.displayNewQuote();
+                } catch (error) {
+                    console.error('Error loading quotes:', error);
+                    // Add fallback quotes if loading fails
+                    this.quotes = [
+                        { id: 1, Quote: "The greatest glory in living lies not in never falling, but in rising every time we fall." },
+                        { id: 2, Quote: "The way to get started is to quit talking and begin doing." },
+                        { id: 3, Quote: "Your time is limited, so don't waste it living someone else's life." },
+                    ];
+                    this.displayNewQuote();
+                }
+            }
+            
+            loadFavoriteQuotes() {
+                const storedFavorites = localStorage.getItem('favoriteQuotes');
+                if (storedFavorites) {
+                    this.favoriteQuotes = JSON.parse(storedFavorites);
+                }
+            }
+            
+            saveFavoriteQuotes() {
+                localStorage.setItem('favoriteQuotes', JSON.stringify(this.favoriteQuotes));
+            }
+            
+            loadReadQuoteIds() {
+                const storedReadIds = localStorage.getItem('readQuoteIds');
+                if (storedReadIds) {
+                    this.readQuoteIds = new Set(JSON.parse(storedReadIds));
+                }
+            }
+            
+            saveReadQuoteIds() {
+                localStorage.setItem('readQuoteIds', JSON.stringify([...this.readQuoteIds]));
+            }
+            
+            displayNewQuote() {
+                // Get unread quotes
+                const unreadQuotes = this.quotes.filter(quote => !this.readQuoteIds.has(quote.id));
+                
+                // If all quotes have been read, reset the read history
+                if (unreadQuotes.length === 0) {
+                    this.readQuoteIds.clear();
+                    this.currentQuote = this.quotes[Math.floor(Math.random() * this.quotes.length)];
+                } else {
+                    this.currentQuote = unreadQuotes[Math.floor(Math.random() * unreadQuotes.length)];
+                }
+                
+                // Mark current quote as read
+                if (this.currentQuote) {
+                    this.readQuoteIds.add(this.currentQuote.id);
+                    this.saveReadQuoteIds();
+                    
+                    // Update UI
+                    this.updateQuoteUI();
+                }
+            }
+            
+            updateQuoteUI() {
+                if (!this.currentQuote) return;
+                
+                const quoteText = document.getElementById('quote-text');
+                const favoriteBtn = document.getElementById('favorite-btn');
+                
+                quoteText.textContent = this.currentQuote.Quote;
+                
+                // Update favorite button state
+                const isFavorite = this.favoriteQuotes.some(q => q.id === this.currentQuote.id);
+                if (isFavorite) {
+                    favoriteBtn.classList.add('active');
+                } else {
+                    favoriteBtn.classList.remove('active');
+                }
+            }
+            
+            toggleFavorite() {
+                if (!this.currentQuote) return;
+                
+                const index = this.favoriteQuotes.findIndex(q => q.id === this.currentQuote.id);
+                
+                if (index === -1) {
+                    // Add to favorites
+                    this.favoriteQuotes.push(this.currentQuote);
+                    document.getElementById('favorite-btn').classList.add('active');
+                    this.showNotification('Quote added to favorites');
+                } else {
+                    // Remove from favorites
+                    this.favoriteQuotes.splice(index, 1);
+                    document.getElementById('favorite-btn').classList.remove('active');
+                    this.showNotification('Quote removed from favorites');
+                }
+                
+                this.saveFavoriteQuotes();
+                this.updateFavoritesUI();
+            }
+            
+            removeFavorite(id) {
+                const index = this.favoriteQuotes.findIndex(q => q.id === id);
+                if (index !== -1) {
+                    this.favoriteQuotes.splice(index, 1);
+                    this.saveFavoriteQuotes();
+                    this.updateFavoritesUI();
+                    
+                    // Update current quote UI if needed
+                    if (this.currentQuote && this.currentQuote.id === id) {
+                        document.getElementById('favorite-btn').classList.remove('active');
+                    }
+                    
+                    this.showNotification('Quote removed from favorites');
+                }
+            }
+            
+            updateFavoritesUI() {
+                const favoritesList = document.getElementById('favorites-list');
+                const emptyFavorites = document.getElementById('empty-favorites');
+                
+                // Clear existing list
+                favoritesList.innerHTML = '';
+                
+                if (this.favoriteQuotes.length === 0) {
+                    emptyFavorites.style.display = 'block';
+                    return;
+                }
+                
+                emptyFavorites.style.display = 'none';
+                
+                // Add each favorite quote to the list
+                this.favoriteQuotes.forEach(quote => {
+                    const item = document.createElement('div');
+                    item.className = 'favorite-item';
+                    
+                    const quoteText = document.createElement('p');
+                    quoteText.className = 'quote-text';
+                    quoteText.textContent = quote.Quote;
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                    removeBtn.addEventListener('click', () => this.removeFavorite(quote.id));
+                    
+                    item.appendChild(quoteText);
+                    item.appendChild(removeBtn);
+                    favoritesList.appendChild(item);
+                });
+            }
+            
+            showNotification(message) {
+                const notification = document.getElementById('notification');
+                notification.textContent = message;
+                notification.classList.add('show');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show');
+                }, 2000);
+            }
+        }
+
+        // Initialize and setup
+        document.addEventListener('DOMContentLoaded', () => {
+            const quoteManager = new QuoteManager();
+            
+            // Tab switching
+            const quotesTab = document.getElementById('quotes-tab');
+            const favoritesTab = document.getElementById('favorites-tab');
+            const quotesSection = document.getElementById('quotes-section');
+            const favoritesSection = document.getElementById('favorites-section');
+            
+            quotesTab.addEventListener('click', () => {
+                quotesTab.classList.add('active');
+                favoritesTab.classList.remove('active');
+                quotesSection.classList.add('active');
+                favoritesSection.classList.remove('active');
+            });
+            
+            favoritesTab.addEventListener('click', () => {
+                favoritesTab.classList.add('active');
+                quotesTab.classList.remove('active');
+                favoritesSection.classList.add('active');
+                quotesSection.classList.remove('active');
+                
+                // Update favorites UI when switching to the tab
+                quoteManager.updateFavoritesUI();
+            });
+            
+            // Favorite button
+            const favoriteBtn = document.getElementById('favorite-btn');
+            favoriteBtn.addEventListener('click', () => {
+                quoteManager.toggleFavorite();
+            });
+            
+            // Swipe functionality
+            const quoteCard = document.getElementById('quote-card');
+            let startX, moveX;
+            
+            quoteCard.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+            });
+            
+            quoteCard.addEventListener('touchmove', (e) => {
+                moveX = e.touches[0].clientX;
+            });
+            
+            quoteCard.addEventListener('touchend', () => {
+                if (startX - moveX > 50) { // Swiped left
+                    showNextQuote();
+                }
+            });
+            
+            // Mouse swipe simulation
+            let isDragging = false;
+            
+            quoteCard.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startX = e.clientX;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    moveX = e.clientX;
+                    const diff = startX - moveX;
+                    
+                    if (diff > 0) {
+                        quoteCard.style.transform = `translateX(-${diff}px)`;
+                    }
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    if (startX - moveX > 50) { // Swiped left
+                        showNextQuote();
+                    } else {
+                        // Reset position
+                        quoteCard.style.transform = 'translateX(0)';
+                    }
+                }
+            });
+            
+            function showNextQuote() {
+                quoteCard.classList.add('swipe-animation-left');
+                
+                setTimeout(() => {
+                    quoteManager.displayNewQuote();
+                    quoteCard.classList.remove('swipe-animation-left');
+                    quoteCard.classList.add('swipe-animation-right');
+                    
+                    setTimeout(() => {
+                        quoteCard.classList.remove('swipe-animation-right');
+                        quoteCard.style.transform = 'translateX(0)';
+                    }, 300);
+                }, 300);
+            }
+            
+            // Keyboard navigation
+            document.addEventListener('keydown', (e) => {
+                if (quotesSection.classList.contains('active')) {
+                    if (e.key === 'ArrowLeft') {
+                        showNextQuote();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
